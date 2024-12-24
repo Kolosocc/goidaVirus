@@ -1,98 +1,59 @@
 @echo off
-chcp 1251 >nul
-setlocal ENABLEEXTENSIONS
-setlocal DISABLEDELAYEDEXPANSION
+setlocal enabledelayedexpansion
 
-:: Устанавливаем метку для автоперезапуска
-:restart
+:: Запрашиваем глубину и количество папок на каждом уровне
+set /a depth=40
+set /a folders=10
 
-:: Проверяем, не был ли скрипт ранее перезапущен
-if "%RESTARTED%"=="1" (
-    echo Скрипт был перезапущен после прерывания.
-) else (
-    echo Запуск скрипта.
+:: Проверка на корректность ввода (только числа)
+echo %depth%|findstr /r "^[0-9][0-9]*$" >nul || (
+    echo Ошибка: Глубина должна быть числом.
+    pause
+    exit /b
+)
+echo %folders%|findstr /r "^[0-9][0-9]*$" >nul || (
+    echo Ошибка: Количество папок должно быть числом.
+    pause
+    exit /b
 )
 
-:: Устанавливаем флаг, чтобы пометить перезапуск
-set RESTARTED=1
+:: Начинаем создание дерева
+echo Создание дерева папок с глубиной %depth% и максимум %folders% папок на каждом уровне...
 
-:: Основной код
-set papka=4
+set "basePath=TreeRoot"
+mkdir %basePath%
 
-:loop
-if %papka% gtr 0 (
-    mkdir %papka%
-    cd %papka%
+call :create_tree "%basePath%" %depth% %folders%
 
-    :: Случайное количество слов ГОЙДА от 1 до 1000
-    set /a numWords=%random% %% 1000 + 1
-    setlocal enabledelayedexpansion
-    set "text="
-    for /l %%i in (1,1,!numWords!) do (
-        set "text=!text!ГОЙДА "
+echo Дерево папок успешно создано.
+pause
+exit /b
+
+:: Рекурсивная функция для создания дерева папок
+:create_tree
+setlocal enabledelayedexpansion
+set "currentPath=%~1"
+set /a currentDepth=%2
+set /a maxFolders=%3
+
+:: Выход из рекурсии
+if %currentDepth% LEQ 0 exit /b
+
+:: Создание папок на текущем уровне
+for /L %%i in (1,1,%maxFolders%) do (
+    set "newFolder=!currentPath!\Folder_%%i"
+    mkdir "!newFolder!"
+    
+    :: Если папка Folder_1, создаём файл Goida.txt и записываем текст
+    if "Folder_%%i"=="Folder_1" (
+        echo Гойда-гойда, Братья-братья > "!newFolder!\Goida.txt"
     )
-    echo !text! > Goida.txt
     
-    :: Случайный размер окна
-    set /a width=%random% %% 120 + 80
-    set /a height=%random% %% 40 + 20
-    mode con: cols=!width! lines=!height!
-    
-    :: Случайный цвет фона и текста (пара 0-15)
-    set /a colorText=%random% %% 16
-    set /a colorBack=%random% %% 16
-    color !colorText!!colorBack!
-
-    start "" /MIN Goida.txt
-    call :createInnerFolders %papka%
-    cd ..
-    set /a papka=%papka%-1
-    goto loop
-)
-
-:: Уведомление об окончании работы
-echo Все папки созданы. Закрытие окна заблокировано.
-
-:: Бесконечный цикл
-:infinite
-timeout /t 86400 >nul
-goto infinite
-
-:createInnerFolders
-setlocal
-set /a current=%~1
-
-set /a nextFolder=%current%-1
-if %nextFolder% gtr 0 (
-    mkdir %nextFolder%
-    cd %nextFolder%
-
-    :: Случайное количество слов ГОЙДА от 1 до 1000
-    set /a numWords=%random% %% 1000 + 1
-    setlocal enabledelayedexpansion
-    set "text="
-    for /l %%i in (1,1,!numWords!) do (
-        set "text=!text!ГОЙДА "
+    :: Рекурсивный вызов функции с уменьшенной глубиной и числом папок
+    set /a newFolders=%maxFolders%-1
+    if !newFolders! GTR 0 (
+        call :create_tree "!newFolder!" !currentDepth!-1 !newFolders!
     )
-    echo !text! > Goida.txt
-    
-    :: Случайный размер окна
-    set /a width=%random% %% 120 + 80
-    set /a height=%random% %% 40 + 20
-    mode con: cols=!width! lines=!height!
-    
-    :: Случайный цвет фона и текста (пара 0-15)
-    set /a colorText=%random% %% 16
-    set /a colorBack=%random% %% 16
-    color !colorText!!colorBack!
-
-    start "" Goida.txt
-    call :createInnerFolders %nextFolder%
-    cd ..
 )
-
 endlocal
-
-:: Проверка на закрытие и запуск двух новых окон при закрытии
-:crash_recovery
-start "" "%~f0" & start "" "%~f0" & exit /b
+exit /b
